@@ -32,11 +32,29 @@ const depth = (repeat, x, y) => {
   return Infinity;
 };
 
+const COLMAP = (() => {
+  const len = (1 << 8);
+  const color = (c0) => {
+    const c = c0 % 3;
+    if (2 < c) {
+      return 0;
+    }
+    return Math.round((1 - Math.cos(c * Math.PI)) / 2 * 255.4);
+  };
+  let c = new Uint32Array(len);
+  for (let i = 0; i < len; ++i) {
+    const v = i * 3 / len;
+    c[i] = color(v) + color(v + 1) * 0x100 + color(v + 2) * 0x10000;
+  }
+  return c;
+})();
+
 const colorAt = (repeat, x, y) => {
   const d = depth(repeat, x, y);
+  //const d = ((x * x + y * y) * 256) | 0;
   return d == Infinity
     ? 0
-    : ((((d | 0) * 41) & 0x7f) + 0x80) * 0x10101;
+    : COLMAP[d % COLMAP.length];
 };
 
 const draw = (ctx, cx, cy, width) => {
