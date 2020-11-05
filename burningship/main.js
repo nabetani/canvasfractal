@@ -26,32 +26,56 @@ const depth = (repeat, x, y) => {
     zi = 2 * azi * azr + ci;
     const d2 = zr * zr + zi * zi;
     if (8 < d2) {
-      return i;
+      return i * (1 << 6) - Math.ceil((d2 - 8) * (1 << 0));
     }
   }
   return Infinity;
 };
 
 const COLMAP = (() => {
-  const len = (1 << 8);
-  const color = (c0) => {
-    const c = c0 % 3;
-    if (2 < c) {
-      return 0;
-    }
-    return Math.round((1 - Math.cos(c * Math.PI)) / 2 * 255.4);
-  };
+  const len = (1 << 10);
   let c = new Uint32Array(len);
+  const delta = 6 / 29;
+  const f_inv = (f) => {
+    return delta < f
+      ? f * f * f
+      : (f - 16 / 116) * 3 * delta * delta;
+  };
+  const nonlinear = (x0) => {
+    const x = Math.max(0, Math.min(1, x0));
+    return x < 0.0031308
+      ? x * 12.92
+      : 1.055 * Math.pow(x, 1 / 2.4) - 0.055;
+  };
+  const yn = 0.578;
+  const xn = 0.549;
+  const zn = 0.629;
+  const AB = 100;
   for (let i = 0; i < len; ++i) {
-    const v = i * 3 / len;
-    c[i] = color(v) + color(v + 1) * 0x100 + color(v + 2) * 0x10000;
+    const th = i * 2 * Math.PI / len;
+    const a = Math.cos(th) * AB;
+    const b = Math.sin(th) * AB;
+    const L = 80;
+    const fy = (L + 16) / 116;
+    const fx = fy + a / 500;
+    const fz = fy - b / 200;
+    const y = yn * f_inv(fy);
+    const x = xn * f_inv(fx);
+    const z = zn * f_inv(fz);
+    const rr = nonlinear(3.24 * x - 1.54 * y - 0.499 * z);
+    const rg = nonlinear(-0.969 * x + 1.88 * y + 0.0415 * z);
+    const rb = nonlinear(0.0557 * x - 0.204 * y + 1.057 * z);
+    const m = 255.4;// / Math.max(rr, rg, rb);
+    c[i] = Math.round(rr * m) +
+      Math.round(rg * m) * 0x100 +
+      Math.round(rb * m) * 0x10000;
   }
   return c;
 })();
 
 const colorAt = (repeat, x, y) => {
   const d = depth(repeat, x, y);
-  //const d = ((x * x + y * y) * 256) | 0;
+  // const d = ((x * x + y * y) * 256) | 0;
   return d == Infinity
     ? 0
     : COLMAP[d % COLMAP.length];
