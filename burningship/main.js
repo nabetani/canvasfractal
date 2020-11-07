@@ -14,27 +14,9 @@ const setElementValue = (id, val) => {
 };
 
 
-const depth = (repeat, x, y) => {
-  const cr = x;
-  const ci = y;
-  let zr = 0;
-  let zi = 0;
-  for (let i = 0; i < repeat; ++i) {
-    let azr = Math.abs(zr);
-    let azi = Math.abs(zi);
-    zr = azr * azr - azi * azi + cr;
-    zi = 2 * azi * azr + ci;
-    const d2 = zr * zr + zi * zi;
-    if (8 < d2) {
-      return i * (1 << 6) - Math.ceil((d2 - 8) * (1 << 0));
-    }
-  }
-  return Infinity;
-};
-
+const colCount = (1 << 10);
 const COLMAP = (() => {
-  const len = (1 << 10);
-  let c = new Uint32Array(len);
+  let c = new Uint32Array(colCount);
   const delta = 6 / 29;
   const f_inv = (f) => {
     return delta < f
@@ -51,8 +33,8 @@ const COLMAP = (() => {
   const xn = 0.549;
   const zn = 0.629;
   const AB = 100;
-  for (let i = 0; i < len; ++i) {
-    const th = i * 2 * Math.PI / len;
+  for (let i = 0; i < colCount; ++i) {
+    const th = i * 2 * Math.PI / colCount;
     const a = Math.cos(th) * AB;
     const b = Math.sin(th) * AB;
     const L = 80;
@@ -73,12 +55,30 @@ const COLMAP = (() => {
   return c;
 })();
 
+const depth = (repeat, x, y) => {
+  const cr = x;
+  const ci = y;
+  let zr = 0;
+  let zi = 0;
+  for (let i = 0; i < repeat; ++i) {
+    let azr = Math.abs(zr);
+    let azi = Math.abs(zi);
+    zr = azr * azr - azi * azi + cr;
+    zi = 2 * azi * azr + ci;
+    const d2 = zr * zr + zi * zi;
+    if (4 < d2) {
+      return 0 | (i * (1 << 7) - Math.ceil((d2 - 4) * (1 << 2)));
+    }
+  }
+  return Infinity;
+};
+
 const colorAt = (repeat, x, y) => {
   const d = depth(repeat, x, y);
   // const d = ((x * x + y * y) * 256) | 0;
   return d == Infinity
     ? 0
-    : COLMAP[d % COLMAP.length];
+    : COLMAP[d & (colCount - 1)];
 };
 
 const draw = (ctx, cx, cy, width) => {
